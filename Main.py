@@ -107,7 +107,7 @@ async def remove_data(ctx, reason: str = "No reason provided", *ids: str):
 ## Clear: Clears the specified table or "audit_log" as default.
 @bot.command(name="clear")
 @commands.has_any_role("Dev", "Admin") # Makes so the bot only responds if the user has either of the two roles "Admin" or "Dev".
-async def clear(ctx, table: str = "audit_log"):
+async def clear(ctx, table: str = "audit_log", reason: str = "Regular clearing of log."): # Defines table as audit_log by default if it is not specified by the user.
     await ctx.send(f"Are you sure you want to clear **{table}**? Reply **Yes** to this message if you do.") # Sends a message on discord to confirm they want to clear the specified table.
 
     def check(message):
@@ -124,7 +124,7 @@ async def clear(ctx, table: str = "audit_log"):
             audit_logs.append({"category": f"Clear {table}", 
                 "removal_date": f"{str(datetime.now().strftime("%H:%M-%d.%m.%Y"))}",
                 "removed_item": "N/A",
-                "reason": "N/A"
+                "reason": reason
             }) # Formats the log for the clearing of the table.
             supabase.table("audit_log").insert(audit_logs).execute() # Logs the table having been cleared in the table "audit_log"
         elif msg.content.lower() == "no":
