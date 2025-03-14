@@ -4,8 +4,7 @@ from datetime import datetime
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-import asyncio
-from supabase import create_client, Client
+from supabase import create_client
 from datetime import datetime
 
 # Dotenv loading

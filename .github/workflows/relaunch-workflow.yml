@@ -1,0 +1,43 @@
+name: Relaunch Workflow
+
+on:
+  workflow_run:
+    workflows: ["Main Workflow"]
+    types:
+      - completed
+
+jobs:
+  redeploy:
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    env:
+      GH_PAT: ${{ secrets.GH_PAT }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up GitHub CLI
+        run: |
+          echo "${{ secrets.GH_PAT }}" | gh auth login --with-token
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+
+      - name: Check for "Shutting down..." in Main Workflow logs
+        id: check_logs
+        run: |
+          LOG_OUTPUT=$(gh run view $(gh run list --workflow="Main Workflow" --json databaseId --jq '.[0].databaseId') --log)
+          echo "$LOG_OUTPUT"
+          if echo "$LOG_OUTPUT" | grep -q "Shutting down..."; then
+            echo "shutdown_found=true" >> $GITHUB_ENV
+          else
+            echo "shutdown_found=false" >> $GITHUB_ENV
+          fi
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+
+      - name: Trigger Main Workflow
+        if: env.shutdown_found == 'false'
+        run: |
+          gh workflow run "Main Workflow"
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
