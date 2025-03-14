@@ -30,7 +30,7 @@ async def on_ready():
 
 ## Add: Adds the data to the "financial_data" table.
 @bot.command(name="add")
-@commands.has_role("Admin" or "Dev") # Makes so the bot only responds if the user has either of the two roles "Admin" or "Dev".
+@commands.has_any_role("Admin", "Dev") # Makes so the bot only responds if the user has either of the two roles "Admin" or "Dev".
 async def add_data(ctx, category: str, amount: float, date: str = None):
     try:
         if not date: # Checks if a date has been specified.
@@ -56,7 +56,7 @@ async def add_data(ctx, category: str, amount: float, date: str = None):
 
 ## Remove: Removes the specified row(s) from the "financial_data" table.
 @bot.command(name="remove")
-@commands.has_role("Dev" or "Admin") # Makes so the bot only responds if the user has either of the two roles "Admin" or "Dev".
+@commands.has_any_role("Dev", "Admin") # Makes so the bot only responds if the user has either of the two roles "Admin" or "Dev".
 async def remove_data(ctx, reason: str = "No reason provided", *ids: str):
     try:
         if not ids:
@@ -106,7 +106,7 @@ async def remove_data(ctx, reason: str = "No reason provided", *ids: str):
 
 ## Clear: Clears the specified table or "audit_log" as default.
 @bot.command(name="clear")
-@commands.has_role("Dev" or "Admin") # Makes so the bot only responds if the user has either of the two roles "Admin" or "Dev".
+@commands.has_any_role("Dev", "Admin") # Makes so the bot only responds if the user has either of the two roles "Admin" or "Dev".
 async def clear(ctx, table: str = "audit_log"):
     await ctx.send(f"Are you sure you want to clear **{table}**? Reply **Yes** to this message if you do.") # Sends a message on discord to confirm they want to clear the specified table.
 
