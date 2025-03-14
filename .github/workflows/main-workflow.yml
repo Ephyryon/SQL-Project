@@ -29,6 +29,6 @@ jobs:
         BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-      run: python bot.py
+      run: python Main.py
       timeout-minutes: 330
       continue-on-error: True
