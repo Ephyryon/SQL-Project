@@ -17,13 +17,39 @@ Token = os.getenv('BOT_TOKEN')
 supabase = create_client(url, key)
 
 # Discord bot
-intents = discord.Intents.all()
+intents = discord.Intents.default()
+intents.messages = True
+intents.message_content = True
+intents.members = True
+intents.guilds = True
 bot = commands.Bot(command_prefix="!", intents=intents)
+
+registered_guilds = {
+    1346784451455356948: {"database_role_perms": []}
+}
+
+def guild_owner_only():
+    async def predicate(ctx):
+        return ctx.author == ctx.guild.owner
+    return commands.check(predicate)
 
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
     print(f"Logged into guilds: {bot.guilds}")
+
+@bot.event
+async def on_guild_join(guild):
+    registered_guilds[guild.id] = {"database_role_perms": []}
+    print(f"Added guild {guild.name} ({guild.id}) to registered_guilds.")
+    print(registered_guilds)
+
+@bot.event
+async def on_guild_remove(guild):
+    if guild.id in registered_guilds:
+        del registered_guilds[guild.id]
+        print(f"Removed guild {guild.name} ({guild.id}) from registered_guilds.")
+    print(registered_guilds)
 
 
 ### Bot commands
@@ -106,7 +132,6 @@ async def remove_data(ctx, reason: str = "No reason provided", *ids: str):
 
 ## Clear: Clears the specified table or "audit_log" as default.
 @bot.command(name="clear")
-@commands.has_any_role("Dev", "Admin") # Makes so the bot only responds if the user has either of the two roles "Admin" or "Dev".
 async def clear(ctx, table: str = "audit_log", reason: str = "Regular clearing of log."): # Defines table as audit_log by default if it is not specified by the user.
     await ctx.send(f"Are you sure you want to clear **{table}**? Reply **Yes** to this message if you do.") # Sends a message on discord to confirm they want to clear the specified table.
 
@@ -137,39 +162,75 @@ async def clear(ctx, table: str = "audit_log", reason: str = "Regular clearing o
 @bot.command(name="view")
 async def view_data(ctx, table: str = "financial_data"): # table is initialized as "financial_data" if it's not specified when running the command.
     try:
-        data = supabase.table(table).select("*").execute() # Fetches all the data in the specified table.
-        rows = data.data # Puts each row in the specified table in a list.
-        
-        if not rows: # Checks if the table was empty.
-            await ctx.send(f"No data found in {table}.") # Sends a message on discord informing you the table was empty.
-            return # Ends the commands runtime.
-
-        # Group the data by category
-        categories = {} # Initializes categories as a empty dictionary.
-        for row in rows:
-            category = row['category'] # Initializes the category with the category in the row being checked.
-            categories.setdefault(category, []).append(row) # Adds the new category if the category doesn't already exist and then adds the row to the category. Otherwise it adds the row to the category.
-
-        # Prepare formatted output
-        result = [f"# {table}:\n"]  # Using list for faster string concatenation
-        for category, items in categories.items():
-            result.append(f"**{category}:**")
+        guild_id = ctx.guild.id
+        role_ids = set(registered_guilds.get(guild_id, {}).get("database_role_perms", []))
+        user_roles = {role.id for role in ctx.author.roles}
+        if not role_ids:
+            await ctx.send("You do not have the correct permissions to access this command.", ephemeral=True)
+            return
+        if role_ids & user_roles:
+            data = supabase.table(table).select("*").execute() # Fetches all the data in the specified table.
+            rows = data.data # Puts each row in the specified table in a list.
             
-            if table == "financial_data":
-                items_sorted = sorted(items, key=lambda x: x['amount'])  # Sort by amount
-                for item in items_sorted:
-                    result.append(f"{item['id']}-{item['date']} | {item['category']} | ${item['amount']}")
-            
-            elif table == "audit_log":
-                items_sorted = sorted(items, key=lambda x: datetime.strptime(x['removal_date'], "%H:%M-%d.%m.%Y"))  # Sort by removal date
-                for item in items_sorted:
-                    result.append(f"{item['id']} - {item['removal_date']} | {item['category']} | {item['removed_item']} | {item['reason']}")
+            if not rows: # Checks if the table was empty.
+                await ctx.send(f"No data found in {table}.") # Sends a message on discord informing you the table was empty.
+                return # Ends the commands runtime.
 
-        # Send the final output message as a single string
-        await ctx.send("\n".join(result))
+            # Group the data by category
+            categories = {} # Initializes categories as a empty dictionary.
+            for row in rows:
+                category = row['category'] # Initializes the category with the category in the row being checked.
+                categories.setdefault(category, []).append(row) # Adds the new category if the category doesn't already exist and then adds the row to the category. Otherwise it adds the row to the category.
+
+            # Prepare formatted output
+            result = [f"# {table}:\n"]  # Using list for faster string concatenation
+            for category, items in categories.items():
+                result.append(f"**{category}:**")
+                
+                if table == "financial_data":
+                    items_sorted = sorted(items, key=lambda x: x['amount'])  # Sorts the items in the table seperated by category according to which item in said category has the largest number, but only if it's the "finiancial_data" table.
+                    for item in items_sorted:
+                        result.append(f"{item['id']}-{item['date']} | {item['category']} | ${item['amount']}") # Formats the data in a discord message so it still makes sense.
+                
+                elif table == "audit_log":
+                    items_sorted = sorted(items, key=lambda x: datetime.strptime(x['removal_date'], "%H:%M-%d.%m.%Y"))  # Otherwise it instead sorts the items in the table still seperated by each category, but now the newest date appears a the top since "audit_log" has no nummerical value.
+                    for item in items_sorted:
+                        result.append(f"{item['id']} - {item['removal_date']} | {item['category']} | {item['removed_item']} | {item['reason']}") # Formats the data so it fits within a discord message and still makes sense.
+
+            # Send the final output message as a single string
+            await ctx.send("\n".join(result))
+        else:
+            await ctx.send("You do not have the correct permissions to access this command.", ephemeral=True)
     
     except Exception as e:
         await ctx.send(f"Failed to fetch data: {str(e)}")
+
+### Guild managment
+## Add_role: Adds roles that gain a permit to use the supabase discord bot commands. !!!ONLY USABLE BY THE GUILD/GROUP OWNER!!!
+@bot.command(name="add_role")
+@guild_owner_only()
+async def add_role(ctx, role: discord.Role):
+    guild_id = ctx.guild.id
+    if guild_id not in registered_guilds:
+        registered_guilds[guild_id] = []
+    if role.id not in registered_guilds[guild_id]["database_role_perms"]:
+        registered_guilds[guild_id]["database_role_perms"].append(role.id)
+        await ctx.send(f"Added role {role.name} ({role.id}) to the list.")
+    else:
+        await ctx.send(f"Role {role.name} is already registered.")
+    print(registered_guilds)
+
+## Show_roles: Shows all roles with permission to use the supabase commands in your server.
+@bot.command(name="show_roles")
+@guild_owner_only()
+async def show_roles(ctx):
+    guild_id = ctx.guild.id
+    roles = registered_guilds.get(guild_id, {}).get("database_role_perms", [])
+    if roles:
+        await ctx.send(f"Registered roles: {roles}")
+    else:
+        await ctx.send("No roles registered for this guild.")
+    print(registered_guilds)
 
 ### Bot managment
 ## Shutdown: Shuts down the bot.
@@ -185,5 +246,11 @@ async def shutdown(ctx):
 async def restart(ctx):
     await ctx.send("Restarting...") # Sends a message on discord that the bot is restarting.
     os.execv(sys.executable, ['python'] + sys.argv) # Kills the current runtime after having made a new one with the updated or same source code.
+
+## Show_guilds: Shows all the guilds the bot is in.
+@bot.command(name="show_guilds")
+@commands.is_owner()
+async def show_guilds(ctx):
+    await ctx.send(f"Registered Guilds: {registered_guilds}")
 
 bot.run(Token)

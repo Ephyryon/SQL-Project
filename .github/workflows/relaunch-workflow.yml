@@ -25,16 +25,28 @@ jobs:
       - name: Check for "Shutting down..." in Main Workflow logs
         id: check_logs
         run: |
-          LOG_OUTPUT=$(gh run view $(gh run list --workflow="Main Workflow" --json databaseId --jq '.[0].databaseId') --log)
-          echo "$LOG_OUTPUT"
+          RUN_ID=$(gh run list --workflow="Main Workflow" --json databaseId --jq '.[0].databaseId')
+          if [ -z "$RUN_ID" ]; then
+            echo "No recent run found. Exiting check."
+            echo "shutdown_found=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          LOG_OUTPUT=$(gh run view "$RUN_ID" --log || echo "LOG_FETCH_ERROR")
+          if [ "$LOG_OUTPUT" == "LOG_FETCH_ERROR" ]; then
+            echo "Failed to fetch logs."
+            echo "shutdown_found=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+            
           if echo "$LOG_OUTPUT" | grep -q "Shutting down..."; then
-            echo "shutdown_found=true" >> $GITHUB_ENV
+            echo "shutdown_found=true" >> $GITHUB_OUTPUT
           else
-            echo "shutdown_found=false" >> $GITHUB_ENV
+            echo "shutdown_found=false" >> $GITHUB_OUTPUT
           fi
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
-
+          
       - name: Trigger Main Workflow
         if: env.shutdown_found == 'false'
         run: |
