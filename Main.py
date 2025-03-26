@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 from datetime import datetime
 import discord
 from discord.ext import commands
@@ -24,9 +25,17 @@ intents.members = True
 intents.guilds = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-registered_guilds = {
-    1346784451455356948: {"database_role_perms": []}
-}
+if os.path.exists('registered_guilds.json'):
+    with open('registered_guilds.json', 'r') as f:
+        registered_guilds = json.load(f)
+else:
+    registered_guilds = {}
+    
+def register_role_with_guild():
+    with open('registered_guilds.json', 'w') as file:
+        json.dump(registered_guilds, file, indent=4)
+
+spine_save = []
 
 def guild_owner_only():
     async def predicate(ctx):
@@ -162,7 +171,7 @@ async def clear(ctx, table: str = "audit_log", reason: str = "Regular clearing o
 @bot.command(name="view")
 async def view_data(ctx, table: str = "financial_data"): # table is initialized as "financial_data" if it's not specified when running the command.
     try:
-        guild_id = ctx.guild.id
+        guild_id = str(ctx.guild.id)
         role_ids = set(registered_guilds.get(guild_id, {}).get("database_role_perms", []))
         user_roles = {role.id for role in ctx.author.roles}
         if not role_ids:
@@ -210,11 +219,12 @@ async def view_data(ctx, table: str = "financial_data"): # table is initialized 
 @bot.command(name="add_role")
 @guild_owner_only()
 async def add_role(ctx, role: discord.Role):
-    guild_id = ctx.guild.id
+    guild_id = str(ctx.guild.id)
     if guild_id not in registered_guilds:
         registered_guilds[guild_id] = []
     if role.id not in registered_guilds[guild_id]["database_role_perms"]:
         registered_guilds[guild_id]["database_role_perms"].append(role.id)
+        register_role_with_guild()
         await ctx.send(f"Added role {role.name} ({role.id}) to the list.")
     else:
         await ctx.send(f"Role {role.name} is already registered.")
@@ -224,13 +234,40 @@ async def add_role(ctx, role: discord.Role):
 @bot.command(name="show_roles")
 @guild_owner_only()
 async def show_roles(ctx):
-    guild_id = ctx.guild.id
-    roles = registered_guilds.get(guild_id, {}).get("database_role_perms", [])
-    if roles:
-        await ctx.send(f"Registered roles: {roles}")
+    guild_id = str(ctx.guild.id)
+    role_ids = registered_guilds.get(guild_id, {}).get("database_role_perms", [])
+
+    if role_ids:
+        # Convert role IDs to role names
+        role_names = [ctx.guild.get_role(role_id).name for role_id in role_ids if ctx.guild.get_role(role_id)]
+        if role_names:
+            await ctx.send(f"Registered roles: {', '.join(role_names)}")
+        else:
+            await ctx.send("No valid roles found (roles may have been deleted).")
     else:
         await ctx.send("No roles registered for this guild.")
+
     print(registered_guilds)
+
+
+
+### Silly commands
+## Spine: Set so someone has or doesn't have a spine.
+@bot.command(name="spine")
+@guild_owner_only()
+async def spine(ctx, user: discord.User, spinee: bool = True):
+    if spinee:
+        if user.id not in spine_save:
+            spine_save.append(user.id)  # Add user ID to the list
+            await ctx.send(f"{user} has gained a spine.")
+        else:
+            await ctx.send(f"{user} already has a spine.")
+    else:
+        if user.id not in spine_save:
+            await ctx.send(f"{user} already has no spine.")
+        else:
+            spine_save.remove(user.id)  # Remove user ID from the list
+            await ctx.send(f"{user} has lost their spine.")
 
 ### Bot managment
 ## Shutdown: Shuts down the bot.

@@ -32,3 +32,15 @@ jobs:
       run: python Main.py
       timeout-minutes: 330
       continue-on-error: True
+
+    - name: Commit and Push Changes
+      if: always()
+      env:
+        GH_PAT: ${{ secrets.GH_PAT }}
+      run: |
+        git config --global user.email "jonatangrondahl@outlook.com"
+        git config --global user.name "Ephyryon"
+        git add "registered_guilds.json"
+        git commit -m "Update JSON data files"
+        git push https://$GH_PAT@github.com/Ephyryon/SQL-Project.git main
+      continue-on-error: True
