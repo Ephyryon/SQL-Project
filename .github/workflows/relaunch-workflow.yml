@@ -48,7 +48,7 @@ jobs:
           GH_PAT: ${{ secrets.GH_PAT }}
           
       - name: Trigger Main Workflow
-        if: env.shutdown_found == 'false'
+        if: steps.check_logs.outputs.shutdown_found == 'false'
         run: |
           gh workflow run "Main Workflow"
         env:
