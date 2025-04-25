@@ -290,6 +290,7 @@ async def spine(ctx, user: discord.User, spinee: bool = True):
 @commands.is_owner() # Makes so the bot only responds if the user is the owner of the bot.
 async def shutdown(ctx):
     await ctx.send("Shutting down...") # Sends a message on discord that the bot is shutting down.
+    print("Shutting down...") # I forgot this stupid line so the bot would restart even if I told it to shut the fack up. >:C My fault I guess, but still!
     await bot.close() # Shuts down the bot.
 
 ## Restart: Restarts the bot letting it update its source code.
