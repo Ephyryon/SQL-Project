@@ -264,8 +264,6 @@ async def show_roles(ctx):
 
     print(registered_guilds)
 
-
-
 ### Silly commands
 ## Spine: Set so someone has or doesn't have a spine.
 @bot.command(name="spine")
@@ -288,22 +286,43 @@ async def spine(ctx, user: discord.User, spinee: bool = True):
 ## Shutdown: Shuts down the bot.
 @bot.command(name="shutdown")
 @commands.is_owner() # Makes so the bot only responds if the user is the owner of the bot.
-async def shutdown(ctx):
-    await ctx.send("Shutting down...") # Sends a message on discord that the bot is shutting down.
-    print("Shutting down...") # I forgot this stupid line so the bot would restart even if I told it to shut the fack up. >:C My fault I guess, but still!
-    await bot.close() # Shuts down the bot.
+async def shutdown(ctx, name: str = ""):
+    if bot.user.name == name:
+        await ctx.send("Shutting down...") # Sends a message on discord that the bot is shutting down.
+        print("Shutting down...") # This is important to make sure the bot doesn't relaunch. (Only necessary if you're using github actions.)
+        await bot.close() # Shuts down the bot.
+    else:
+        None
+
+## Ping: Returns the latency of the bot.
+@bot.command(name="ping")
+async def ping(ctx, name: str = ""):
+    if bot.user.name == name:
+        latency = round(bot.latency * 1000) # Converts the latency to ms.
+        embed = discord.Embed(leading="Pong!", description=f"Latency: {latency}ms", color=discord.Color.blurple())
+        await ctx.send(embed=embed, ephemeral=True) # Sends the embed to the user who executed the command.
+    else:
+        None
 
 ## Restart: Restarts the bot letting it update its source code.
 @bot.command(name="restart")
 @commands.is_owner() # Make so the bot only responds if the user is the owner of the bot.
-async def restart(ctx):
-    await ctx.send("Restarting...") # Sends a message on discord that the bot is restarting.
-    os.execv(sys.executable, ['python'] + sys.argv) # Kills the current runtime after having made a new one with the updated or same source code.
+async def restart(ctx, name: str = ""):
+    if bot.user.name == name:
+        await ctx.send("Restarting...") # Sends a message on discord that the bot is restarting.
+        os.execl(sys.executable, sys.executable, *sys.argv) # Kills the current runtime after having made a new one with the updated (or same) source code.
+    else:
+        None
 
 ## Show_guilds: Shows all the guilds the bot is in.
 @bot.command(name="show_guilds")
 @commands.is_owner()
-async def show_guilds(ctx):
-    await ctx.send(f"Registered Guilds: {registered_guilds}")
+async def show_guilds(ctx, name: str = ""):
+    if bot.user.name == name:
+        guild_ids = list(registered_guilds.keys()) # Gets the guild IDs from registered_guilds.
+        guild_names = [bot.get_guild(int(guild_id)).name for guild_id in guild_ids if bot.get_guild(int(guild_id))]
+        await ctx.send(f"Registered Guilds: {guild_names}") # Sends the name of every guild the bot is in.
+    else:
+        None
 
 bot.run(Token)
