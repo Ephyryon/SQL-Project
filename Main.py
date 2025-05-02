@@ -3,7 +3,7 @@ import sys
 import json
 from datetime import datetime
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from dotenv import load_dotenv
 from supabase import create_client
 from datetime import datetime
@@ -59,6 +59,12 @@ def guild_owner_only():
 async def on_ready():
     print(f"Logged in as {bot.user}")
     print(f"Logged into guilds: {bot.guilds}")
+    print(f"Checking supabase connection...")
+    try:
+        supabase.table("audit_log").insert({"category": "Bot started", "removal_date": f"{str(datetime.now().strftime('%H:%M-%d.%m.%Y'))}", "removed_item": "N/A", "reason": "Bot started"}).execute()
+        print("Supabase connection successful.")
+    except Exception as e:
+        print(f"Supabase connection failed: {str(e)}")
 
 @bot.event
 async def on_guild_join(guild):
@@ -72,7 +78,6 @@ async def on_guild_remove(guild):
         del registered_guilds[str(guild.id)]
         print(f"Removed guild {guild.name} ({guild.id}) from registered_guilds.")
     print(registered_guilds)
-
 
 ### Bot commands
 
