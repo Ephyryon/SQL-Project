@@ -63,14 +63,25 @@ async def on_ready():
     try:
         supabase.table("audit_log").insert({"category": "Bot started", "removal_date": f"{str(datetime.now().strftime('%H:%M-%d.%m.%Y'))}", "removed_item": "N/A", "reason": "Bot started"}).execute()
         print("Supabase connection successful.")
-        for member in bot.guilds:
-            user = bot.get_user(member.id)
-            data = supabase.table("users").select("*").eq("user_name", user.name).execute()
-            if user.name not in data.data:
-                supabase.table("users").insert({"user_name": user.name, "registered_vehicles": 0, "creation_date": f"{str(datetime.now().strftime('%H:%MM-%d.%m%Y'))}"}).execute()
-                print(f"Added {user.name} to the database.")
-            else:
-                print(f"{user.name} already exists in the database.")
+        for guild in bot.guilds:
+            async for member in guild.fetch_members(limit=None):
+                user = member  # user is a Member object
+                if user.bot:
+                    continue  # Skip bots if desired
+
+                # Check if user already exists in database
+                data = supabase.table("users").select("*").eq("user_name", user.name).execute()
+                user_exists = any(entry["user_name"] == user.name for entry in data.data)
+
+                if not user_exists:
+                    supabase.table("users").insert({
+                        "user_name": user.name,
+                        "registered_vehicles": 0,
+                        "creation_date": datetime.now().strftime('%H:%M-%d.%m.%Y')
+                    }).execute()
+                    print(f"Added {user.name} to the database.")
+                else:
+                    print(f"{user.name} already exists in the database.")
     except Exception as e:
         print(f"Supabase connection failed: {str(e)}")
 
@@ -245,26 +256,22 @@ async def view_data(ctx, table: str = "financial_data"): # table is initialized 
 ## Register: Registers a item or vehicle under a user.
 @bot.command(name="register")
 async def register(ctx, type: str, model: str):
+    user = ctx.author
+    if not has_correct_roles(ctx, registered_guilds):
+        await ctx.send("You do not have permission to use this command.")
+        return
     try:
-        user = ctx.author # Gets the user who executed the command.
-        if has_correct_roles(ctx, registered_guilds): # Makes so the bot only responds if the user has a role that has permissions to use the bots database commands.
-            data = supabase.table("users").select("*").eq("user_name", user.name).execute() # Gets the user from the database.
-            if user.name not in data.data: # If the user doesn't exist in the database then it adds them.
-                print("ERROR: User not found in database.")
-                await ctx.send("User not found in database.")
-                return # Ends the commands runtime.
-            else:
-                vehicle = []
-                vehicle.append({"registered_under": user.name, "type": type, "model": model, "created_at": f"{str(datetime().now().strftime('%H:%M-%d.%m.%Y'))}"}) # Adds the vehicle to a list.
-                supabase.table("registered_vehicles").insert(vehicle).execute() # Adds the vehicle to the database.
-                supabase.table("users").update({"registered_vehicles": len(data.data[0]["registered_vehicles"]) + 1}).eq("user_name", user.name).execute() # Updates the user in the database to show they have one more vehicle registered under them.
-                await ctx.send(f"Registered {type} - {model} under {user.name}.") # Informs the user via discord that the vehicle has been registered under them.
-        else:
-            await ctx.send("You do not have permission to use this command", ephemeral=True)
-            print(f"User ({user.name}) does not have permission to use this command.")
+        data = supabase.table("users").select("*").eq("user_name", user.name).execute()
+        if not data.data:
+            await ctx.send("User not found in database.")
+            return
+        supabase.table("registered_vehicles").insert([{"registered_under": user.name, "type": type, "model": model, "created_at": datetime.now().strftime('%H:%M-%d.%m.%Y')}]).execute()
+        registered_count = data.data[0].get("registered_vehicles", 0) + 1
+        supabase.table("users").update({"registered_vehicles": registered_count}).eq("user_name", user.name).execute()
+        await ctx.send(f"Registered {type} - {model} under {user.name}.")
     except Exception as e:
-        await ctx.send(f"Failed to register vehicle: {str(e)}")
-        print(f"Failed to register vehicle: {str(e)}") # If a unforseen failure occurs then it sends this error message via discord informing the user that the data wasn't added and hopefully why.
+        await ctx.send(f"Failed to register vehicle: {e}")
+        print(f"Error registering vehicle: {e}")
 
 
 ### Guild managment
