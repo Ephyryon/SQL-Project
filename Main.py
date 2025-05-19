@@ -66,8 +66,8 @@ async def on_ready():
         for member in bot.guilds:
             user = bot.get_user(member.id)
             data = supabase.table("users").select("*").eq("user_name", user.name).execute()
-            if not data.data:
-                supabase.table("users").insert({"user_name": user.name, "registered_vehicles": 0}).execute()
+            if user.name not in data.data:
+                supabase.table("users").insert({"user_name": user.name, "registered_vehicles": 0, "creation_date": f"{str(datetime.now().strftime('%H:%MM-%d.%m%Y'))}"}).execute()
                 print(f"Added {user.name} to the database.")
             else:
                 print(f"{user.name} already exists in the database.")
@@ -249,13 +249,13 @@ async def register(ctx, type: str, model: str):
         user = ctx.author # Gets the user who executed the command.
         if has_correct_roles(ctx, registered_guilds): # Makes so the bot only responds if the user has a role that has permissions to use the bots database commands.
             data = supabase.table("users").select("*").eq("user_name", user.name).execute() # Gets the user from the database.
-            if not data.data: # If the user doesn't exist in the database then it adds them.
+            if user.name not in data.data: # If the user doesn't exist in the database then it adds them.
                 print("ERROR: User not found in database.")
                 await ctx.send("User not found in database.")
                 return # Ends the commands runtime.
             else:
                 vehicle = []
-                vehicle.append({"registered_under": user.name, "type": type, "model": model}) # Adds the vehicle to a list.
+                vehicle.append({"registered_under": user.name, "type": type, "model": model, "created_at": f"{str(datetime().now().strftime('%H:%M-%d.%m.%Y'))}"}) # Adds the vehicle to a list.
                 supabase.table("registered_vehicles").insert(vehicle).execute() # Adds the vehicle to the database.
                 supabase.table("users").update({"registered_vehicles": len(data.data[0]["registered_vehicles"]) + 1}).eq("user_name", user.name).execute() # Updates the user in the database to show they have one more vehicle registered under them.
                 await ctx.send(f"Registered {type} - {model} under {user.name}.") # Informs the user via discord that the vehicle has been registered under them.
