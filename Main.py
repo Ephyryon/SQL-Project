@@ -70,12 +70,12 @@ async def on_ready():
                     continue  # Skip bots if desired
 
                 # Check if user already exists in database
-                data = supabase.table("users").select("*").eq("user_name", user.name).execute()
-                user_exists = any(entry["user_name"] == user.name for entry in data.data)
+                data = supabase.table("users").select("*").eq("category", user.name).execute()
+                user_exists = any(entry["category"] == user.name for entry in data.data)
 
                 if not user_exists:
                     supabase.table("users").insert({
-                        "user_name": user.name,
+                        "category": user.name,
                         "registered_vehicles": 0,
                         "creation_date": datetime.now().strftime('%H:%M-%d.%m.%Y')
                     }).execute()
@@ -220,6 +220,8 @@ async def view_data(ctx, table: str = "financial_data"): # table is initialized 
             data = supabase.table(table).select("*").execute() # Fetches all the data in the specified table.
             rows = data.data # Puts each row in the specified table in a list.
             
+            lines = 0
+
             if not rows: # Checks if the table was empty.
                 await ctx.send(f"No data found in {table}.") # Sends a message on discord informing you the table was empty.
                 return # Ends the commands runtime.
@@ -233,23 +235,42 @@ async def view_data(ctx, table: str = "financial_data"): # table is initialized 
             # Prepare formatted output
             result = [f"# {table}:\n"]  # Using list for faster string concatenation
             for category, items in categories.items():
-                result.append(f"**{category}:**")
                 
                 if table == "financial_data":
+                    result.append(f"**{category}:**")
                     items_sorted = sorted(items, key=lambda x: x['amount'])  # Sorts the items in the table seperated by category according to which item in said category has the largest number, but only if it's the "finiancial_data" table.
                     for item in items_sorted:
                         result.append(f"{item['id']}-{item['date']} | {item['category']} | ${item['amount']}") # Formats the data in a discord message so it still makes sense.
-                
+                        if lines < 10:
+                            lines += 1
+                        else:
+                            await ctx.send("\n".join(result)) # Sends the message to discord.
+                            result = [f"# {table}:\n"]
+                            lines = 0
                 elif table == "audit_log":
+                    result.append(f"**{category}:**")
                     items_sorted = sorted(items, key=lambda x: datetime.strptime(x['removal_date'], "%H:%M-%d.%m.%Y"))  # Otherwise it instead sorts the items in the table still seperated by each category, but now the newest date appears a the top since "audit_log" has no nummerical value.
                     for item in items_sorted:
                         result.append(f"{item['id']} - {item['removal_date']} | {item['category']} | {item['removed_item']} | {item['reason']}") # Formats the data so it fits within a discord message and still makes sense.
+                        if lines < 10:
+                            lines += 1
+                        else:
+                            await ctx.send("\n".join(result)) # Sends the message to discord.
+                            result = [f"# {table}:\n"]
+                            lines = 0
                 elif table == "users":
-                    items_sorted = sorted(items, key=lambda x: datetime.strptime(x['removal_date'], "%H:%M-%d.%m.%Y"))
+                    items_sorted = sorted(items, key=lambda x: x['id'])
                     for item in items_sorted:
-                        result.append(f"{item['id']} - {item['user_name']} | {item['registered_vehicles']} | {item['creation_date']}")
-
-            # Send the final output message as a single string
+                        result.append(f"{item['id']} - {item['category']} | {item['registered_vehicles']} | {item['creation_date']}")
+                        if lines < 10:
+                            lines += 1
+                        else:
+                            await ctx.send("\n".join(result)) # Sends the message to discord.
+                            result = [f"# {table}:\n"] 
+                            lines = 0
+                else:
+                    result.append(f"Unknown table format for {table}.")
+                    print(f"Unknown table format for {table}.")
             await ctx.send("\n".join(result))
         else:
             await ctx.send("You do not have the correct permissions to access this command.", ephemeral=True)
