@@ -244,6 +244,10 @@ async def view_data(ctx, table: str = "financial_data"): # table is initialized 
                     items_sorted = sorted(items, key=lambda x: datetime.strptime(x['removal_date'], "%H:%M-%d.%m.%Y"))  # Otherwise it instead sorts the items in the table still seperated by each category, but now the newest date appears a the top since "audit_log" has no nummerical value.
                     for item in items_sorted:
                         result.append(f"{item['id']} - {item['removal_date']} | {item['category']} | {item['removed_item']} | {item['reason']}") # Formats the data so it fits within a discord message and still makes sense.
+                elif table == "users":
+                    items_sorted = sorted(items, key=lambda x: datetime.strptime(x['removal_date'], "%H:%M-%d.%m.%Y"))
+                    for item in items_sorted:
+                        result.append(f"{item['id']} - {item['user_name']} | {item['registered_vehicles']} | {item['creation_date']}")
 
             # Send the final output message as a single string
             await ctx.send("\n".join(result))
