@@ -61,11 +61,7 @@ async def on_ready():
     print(f"Logged into guilds: {bot.guilds}")
     print(f"Checking supabase connection...")
     try:
-        audit = supabase.table("audit_log").select("*").execute()
-        for entry in audit.data:
-            if entry["category"] == "Bot started":
-                id = entry["id"]
-                supabase.table("audit_log").delete().eq("id", id).execute()  # Clean up old bot start logs
+        supabase.table("audit_log").delete().eq("category", "Bot started").execute() # Deletes any previous "Bot started" logs to avoid clutter.
         supabase.table("audit_log").insert({"category": "Bot started", "removal_date": f"{str(datetime.now().strftime('%H:%M-%d.%m.%Y'))}", "removed_item": "N/A", "reason": "Bot started"}).execute()
         print("Supabase connection successful.")
         for guild in bot.guilds:
