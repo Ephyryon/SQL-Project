@@ -60,56 +60,31 @@ async def on_ready():
     print(f"Logged in as {bot.user}")
     print(f"Logged into guilds: {bot.guilds}")
     print(f"Checking supabase connection...")
-    
     try:
-        # Test connection first
-        test_response = supabase.table("audit_log").select("count", count="exact").execute()
+        supabase.table("audit_log").delete().eq("category", "Bot started").execute() # Deletes any previous "Bot started" logs to avoid clutter.
+        supabase.table("audit_log").insert({"category": "Bot started", "removal_date": f"{str(datetime.now().strftime('%H:%M-%d.%m.%Y'))}", "removed_item": "N/A", "reason": "Bot started"}).execute()
         print("Supabase connection successful.")
-        
-        # Clean up old bot start logs
-        delete_response = supabase.table("audit_log").delete().eq("category", "Bot started").execute()
-        print(f"Deleted {len(delete_response.data)} old bot start logs")
-        
-        # Insert new bot start log
-        insert_response = supabase.table("audit_log").insert({
-            "category": "Bot started", 
-            "removal_date": datetime.now().strftime('%H:%M-%d.%m.%Y'),
-            "removed_item": "N/A", 
-            "reason": "Bot started"
-        }).execute()
-        print("Added bot start log to audit_log")
-        
-        # Process users
         for guild in bot.guilds:
             async for member in guild.fetch_members(limit=None):
-                if member.bot:
-                    continue
-                
-                # Use user ID instead of name for uniqueness
-                user_id = str(member.id)
-                user_name = member.name
-                
-                try:
-                    # Check if user exists by ID (more reliable than name)
-                    data = supabase.table("users").select("*").eq("user_id", user_id).execute()
-                    
-                    if not data.data:
-                        # User doesn't exist, insert them
-                        insert_response = supabase.table("users").insert({
-                            "user_id": user_id,
-                            "username": user_name,
-                            "registered_vehicles": 0,
-                            "creation_date": datetime.now().strftime('%H:%M-%d.%m.%Y')
-                        }).execute()
-                        print(f"Added {user_name} to the database.")
-                    else:
-                        print(f"{user_name} already exists in the database.")
-                        
-                except Exception as user_error:
-                    print(f"Error processing user {user_name}: {user_error}")
-                    
+                user = member  # user is a Member object
+                if user.bot:
+                    continue  # Skip bots if desired
+
+                # Check if user already exists in database
+                data = supabase.table("users").select("*").eq("category", user.name).execute()
+                user_exists = any(entry["category"] == user.name for entry in data.data)
+
+                if not user_exists:
+                    supabase.table("users").insert({
+                        "category": user.name,
+                        "registered_vehicles": 0,
+                        "creation_date": datetime.now().strftime('%H:%M-%d.%m.%Y')
+                    }).execute()
+                    print(f"Added {user.name} to the database.")
+                else:
+                    print(f"{user.name} already exists in the database.")
     except Exception as e:
-        print(f"Supabase operation failed: {str(e)}")
+        print(f"Supabase connection failed: {str(e)}")
 
 @bot.event
 async def on_guild_join(guild):
