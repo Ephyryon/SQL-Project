@@ -303,36 +303,59 @@ async def register(ctx, type: str, model: str):
 ## Add_role: Adds roles that gain a permit to use the supabase discord bot commands. !!!ONLY USABLE BY THE GUILD/GROUP OWNER!!!
 @bot.command(name="add_role")
 @guild_owner_only()
-async def add_role(ctx, role: discord.Role):
+async def add_role(ctx, role: discord.Role, name: str = ""):
     guild_id = str(ctx.guild.id)
-    if guild_id not in registered_guilds:
-        registered_guilds[guild_id] = []
-    if role.id not in registered_guilds[guild_id]["database_role_perms"]:
-        registered_guilds[guild_id]["database_role_perms"].append(role.id)
-        register_role_with_guild()
-        await ctx.send(f"Added role {role.name} ({role.id}) to the list.")
+    if bot.user.name == name:
+        if guild_id not in registered_guilds:
+            registered_guilds[guild_id] = []
+        if role.id not in registered_guilds[guild_id]["database_role_perms"]:
+            registered_guilds[guild_id]["database_role_perms"].append(role.id)
+            register_role_with_guild()
+            await ctx.send(f"Added role {role.name} ({role.id}) to the list.")
+        else:
+            await ctx.send(f"Role {role.name} is already registered.")
+        print(registered_guilds)
     else:
-        await ctx.send(f"Role {role.name} is already registered.")
-    print(registered_guilds)
+        None
+
+
+## Remove_role: Removes the given role from the database_role_perms list revoking their supabase access priviliges.
+@bot.command(name="remove_role")
+@guild_owner_only()
+async def remove_role(ctx, role: discord.Role, name: str = ""):
+    guild_id = str(ctx.guild.id)
+    if bot.user.name == name:
+        if guild_id not in registered_guilds:
+            registered_guilds[guild_id] = {"database_role_perms": []}
+        if role.id not in registered_guilds[guild_id]["database_role_perms"]:
+            await ctx.send(f"Did not remove [{role}] from database_role_perms as [{role}] is not present within database_role_perms.")
+            return
+        else:
+            registered_guilds[guild_id]["database_role_perms"].remove(role.id)
+            await ctx.send(f"Removed [{role}] from database_role_perms successfully.")
+        print(registered_guilds)
+    else:
+        None
 
 ## Show_roles: Shows all roles with permission to use the supabase commands in your server.
 @bot.command(name="show_roles")
 @guild_owner_only()
-async def show_roles(ctx):
+async def show_roles(ctx, name: str = ""):
     guild_id = str(ctx.guild.id)
     role_ids = registered_guilds.get(guild_id, {}).get("database_role_perms", [])
-
-    if role_ids:
-        # Convert role IDs to role names
-        role_names = [ctx.guild.get_role(role_id).name for role_id in role_ids if ctx.guild.get_role(role_id)]
-        if role_names:
-            await ctx.send(f"Registered roles: {', '.join(role_names)}")
+    if bot.user.name == name:
+        if role_ids:
+            # Convert role IDs to role names
+            role_names = [ctx.guild.get_role(role_id).name for role_id in role_ids if ctx.guild.get_role(role_id)]
+            if role_names:
+                await ctx.send(f"Registered roles: {', '.join(role_names)}")
+            else:
+                await ctx.send("No valid roles found (roles may have been deleted).")
         else:
-            await ctx.send("No valid roles found (roles may have been deleted).")
+            await ctx.send("No roles registered for this guild.")
+        print(registered_guilds)
     else:
-        await ctx.send("No roles registered for this guild.")
-
-    print(registered_guilds)
+        None
 
 ### Silly commands
 ## Spine: Set so someone has or doesn't have a spine.
