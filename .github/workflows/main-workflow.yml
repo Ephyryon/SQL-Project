@@ -39,8 +39,8 @@ jobs:
         GH_PAT: ${{ secrets.GH_PAT }}
       run: |
         git config --global user.email "jonatangrondahl@outlook.com"
-        git config --global user.name "Ephyryon"
+        git config --global user.name "JonatanVG"
         git add "registered_guilds.json"
         git commit -m "Update JSON data files"
-        git push https://$GH_PAT@github.com/Ephyryon/SQL-Project.git main
+        git push https://$GH_PAT@github.com/JonatanVG/SQL-Project.git main
       continue-on-error: True
